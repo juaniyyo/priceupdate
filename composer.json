@@ -1,0 +1,21 @@
+{
+    "name": "jmrube/pedregosa",
+    "description": "Actualizador de precios PS vía CVS de proveedor",
+    "type": "project",
+    "require": {
+        "nicolab/php-ftp-client": "^1.4",
+        "league/csv": "^9.1",
+        "vlucas/phpdotenv": "^2.5"
+    },
+    "license": "PRIVATE",
+    "authors": [
+        {
+            "name": "Juan M Rube (Juanito)",
+            "email": "jmrube10@gmail.com"
+        }
+    ],
+    "minimum-stability": "RC",
+    "autoload": {
+        "psr-4": {"Helper\\": "classes/"}
+    }
+}

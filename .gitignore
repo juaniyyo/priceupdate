@@ -1,0 +1,21 @@
+/.vagrant/
+.idea/
+.phpintel/
+phpstorm.php
+Vagrantfile
+composer.lock
+vendor/
+# Linux
+.*
+!.gitignore
+!.htaccess
+*~
+
+# Mac OS X
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon
+._*
+.Spotlight-V100
+.Trashes
