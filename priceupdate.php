@@ -5,8 +5,8 @@
 * NOTICE OF LICENSE
 *
 *  @author    1024Mbits.com <soporte@1024mbits.com>
-*  @copyright 2018 1024Mbits.com
-*  @license   GNU General Public License version 2
+*  @copyright 2013-2018 1024Mbits.com
+*  @license   Commercial license
 *  @category  Prestashop
 *  @category  Module
 *
@@ -17,6 +17,7 @@ if (!defined('_PS_VERSION_'))
 
 require_once(dirname(__FILE__) . '/vendor/autoload.php');
 require_once _PS_MODULE_DIR_.'/priceupdate/classes/PriceUpdateCommon.php';
+require_once _PS_MODULE_DIR_.'/priceupdate/classes/PriceUpdateMail.php';
 
 
 class PriceUpdate extends Module
@@ -61,6 +62,7 @@ class PriceUpdate extends Module
 		if (!parent::install())
 			return false;
 		
+		Configuration::updateValue('JMR_PU_LASTUPDATE', 'null');
 		$success = include(dirname(__FILE__) . '/sql/install.php');
 		
 		if (!$success)
@@ -77,6 +79,7 @@ class PriceUpdate extends Module
 	{
 		if (!parent::uninstall() 
 		|| include(dirname(__FILE__) . '/sql/uninstall.php')
+		|| Configuration::deleteByName('JMR_PU_LASTUPDATE')
 		)
 			return false;
 
@@ -92,7 +95,7 @@ class PriceUpdate extends Module
 	{
 		if ((int)$id > 0)
 		{
-			$sql = 'SELECT b.`id_conn`, b.`ftp_name`, b.`ftp_srv`, b.`ftp_user`, b.`ftp_pass`, b.`ftp_ssl` FROM `'._DB_PREFIX_.'pedregosa_config` b WHERE b.id_conn='.(int)$id;
+			$sql = 'SELECT b.`id_conn`, b.`ftp_name`, b.`ftp_srv`, b.`ftp_user`, b.`ftp_mail`, b.`ftp_pass`, b.`ftp_ssl` FROM `'._DB_PREFIX_.'pedregosa_config` b WHERE b.id_conn='.(int)$id;
 
 			if (!$results = Db::getInstance()->getRow($sql))
 			{
@@ -103,6 +106,7 @@ class PriceUpdate extends Module
 			$link['ftp_name'] = $results['ftp_name'];
 			$link['ftp_srv'] = $results['ftp_srv'];
 			$link['ftp_user'] = $result['ftp_user'];
+			$link['ftp_mail'] = $result['ftp_mail'];
 			$link['ftp_pass'] = $result['ftp_pass'];
 			$link['ftp_ssl'] = $result['ftp_ssl'];
 
@@ -116,7 +120,7 @@ class PriceUpdate extends Module
 	{
 		$result = array();
 
-		$sql = 'SELECT b.`id_conn`, b.`ftp_name`, b.`ftp_srv`, b.`ftp_user`, b.`ftp_pass`, b.`ftp_ssl` FROM `'._DB_PREFIX_.'pedregosa_config` b ORDER BY `id_conn` DESC';
+		$sql = 'SELECT b.`id_conn`, b.`ftp_name`, b.`ftp_srv`, b.`ftp_user`, b.`ftp_mail`, b.`ftp_pass`, b.`ftp_ssl` FROM `'._DB_PREFIX_.'pedregosa_config` b ORDER BY `id_conn` DESC';
 
 		if (!$links = Db::getInstance()->executeS($sql))
 		{
@@ -130,6 +134,7 @@ class PriceUpdate extends Module
 			$result[$i]['ftp_name'] = $link['ftp_name'];
 			$result[$i]['ftp_srv'] = $link['ftp_srv'];
 			$result[$i]['ftp_user'] = $link['ftp_user'];
+			$result[$i]['ftp_mail'] = $link['ftp_mail'];
 			$result[$i]['ftp_pass'] = $link['ftp_pass'];
 			$result[$i]['ftp_ssl'] = $link['ftp_ssl'];
 
@@ -141,8 +146,8 @@ class PriceUpdate extends Module
 
 	public function addConn()
 	{
-		if (!Db::getInstance()->execute('INSERT INTO '._DB_PREFIX_.'pedregosa_config (`id_conn`, `ftp_name`, `ftp_srv`, `ftp_user`, `ftp_pass`, `ftp_ssl`)
-			VALUES (NULL, \''.pSQL(Tools::getValue('ftp_name')).'\', \''.pSQL(Tools::getValue('ftp_srv')).'\', \''.pSQL(Tools::getValue('ftp_user')).'\', \''.pSQL(Tools::getValue('ftp_pass')).'\', '.((isset($_POST['ftp_ssl']) && Tools::getValue('ftp_ssl')) == 'on' ? 1 : 0).')') 
+		if (!Db::getInstance()->execute('INSERT INTO '._DB_PREFIX_.'pedregosa_config (`id_conn`, `ftp_name`, `ftp_srv`, `ftp_user`, `ftp_mail`, `ftp_pass`, `ftp_ssl`)
+			VALUES (NULL, \''.pSQL(Tools::getValue('ftp_name')).'\', \''.pSQL(Tools::getValue('ftp_srv')).'\', \''.pSQL(Tools::getValue('ftp_user')).'\',\''.pSQL(Tools::getValue('ftp_mail')).'\', \''.pSQL(Tools::getValue('ftp_pass')).'\', '.((isset($_POST['ftp_ssl']) && Tools::getValue('ftp_ssl')) == 'on' ? 1 : 0).')') 
 		|| !$id_link = Db::getInstance()->Insert_ID())
 		{ 
 			return false; 
@@ -162,18 +167,20 @@ class PriceUpdate extends Module
 
 		$cron_command = $this->csv->getCronCommand();
         $php_dir = $this->csv->getPHPExecutableFromPath();
+        $url = $this->csv->getUrlCommand();
+        $domain = Configuration::get('PS_SHOP_DOMAIN');
 
 		$this->_html .= '<div class="panel panel-success">';
 		$this->_html .= '<div class="panel-heading"> Configuración de tarea cron </div>';
 		$this->_html .= '<div class="alert alert-info"><p>Copia y pega este comando en la <b>lista de tareas cron</b> del servidor</p>';
 		$this->_html .= '<pre>' . $php_dir . ' ' . $cron_command . '</pre>';
-		$this->_html .= '</div>';
+		$this->_html .= '<p>En caso de error o para ejecutar manualmente la tarea de actualización ingresa en la siguiente URL</p>';
+		$this->_html .= '<pre>' . $domain . '/index.php' . $url . '</pre>';
 		$this->_html .= '</div>';
 
-		// Añadir conexion FTP
 		if (Tools::isSubmit('submitFtp'))
 		{
-			if (empty($_POST['ftp_name']) || empty($_POST['ftp_srv']) || empty($_POST['ftp_user']) || empty($_POST['ftp_pass']))
+			if (empty($_POST['ftp_srv']) || empty($_POST['ftp_user']) || empty($_POST['ftp_pass']))
 			{
 				$this->_html .= $this->displayError($this->l('Tienes que completar todos los datos'));
 			}else
@@ -229,6 +236,10 @@ class PriceUpdate extends Module
 				'title' => $this->l('Usuario FTP'),
 				'type' => 'text',
 			),
+			'ftp_mail' => array(
+				'title' => $this->l('Notificaciones'),
+				'type' => 'text',
+			),
 			'ftp_ssl' => array(
 				'title' => $this->l('SSL Activado'),
 				'type' => 'text',
@@ -277,17 +288,28 @@ class PriceUpdate extends Module
 						'label' => $this->l('Servidor FTP'),
 						'name' => 'ftp_srv',
 						'lang' => false,
+						'required' => true,
 					),
 					array(
 						'type' => 'text',
 						'label' => $this->l('Usurio'),
 						'name' => 'ftp_user',
 						'lang' => false,
+						'required' => true,
 					),
 					array(
 						'type' => 'password',
 						'label' => $this->l('Password'),
 						'name' => 'ftp_pass',
+						'required' => true,
+					),
+					array(
+						'col' => 2,
+		                'type' => 'text',
+		                'prefix' => '<i class="icon icon-envelope"></i>',
+		                'desc' => $this->l('Si lo dejas en blanco, las notificaciones se enviarán al administrador'),
+		                'label' => $this->l('Email'),
+		                'name' => 'ftp_mail',
 					),
 					array(
 						'type' => 'switch',
@@ -347,6 +369,7 @@ class PriceUpdate extends Module
 			'ftp_name' => '',
 			'ftp_srv' => '',
 			'ftp_user' => '',
+			'ftp_mail' => '',
 			'ftp_pass' => '',
 			'ftp_ssl' => '',
 		);
@@ -372,6 +395,7 @@ class PriceUpdate extends Module
     {
     	$token = $this->csv->getTokenizer();
     	$control = Tools::getValue('token');
+    	$result = '';
 		
 		if($token != $control)
 		{
@@ -383,30 +407,26 @@ class PriceUpdate extends Module
 			$this->finishTask();
 		}
 
-    	$result = '';
-        
-        $result .= $this->log('Comienza la tarea');
-        
-        $result .= $this->log('Conectando a: "' . getenv('FTP_HOST') . '"  OK ');
+        $result .= $this->log('Comenzando la tarea de actualización');
 		
 		if(!$this->csv->downloadCsv())
-		{	//Mensaje de error
+		{	
 			$result .= $this->log('error al descargar el archivo del ftp: "' . getenv('FTP_HOST') . '"');
 			die();
 		}
-		// Mensaje OK
+		
 		$result .= $this->log('Archivo"' . getenv('REMOTE_FILE') . '" descargado:  OK ');
 
 		if(!$this->procesarCsv())
-		{	// Mensaje de error
+		{	
 			$result .= $this->log($this->message);
 			die();
 		}
-		// Mensaje OK
+		
 		$result .= $this->log('Procesando CSV descargado:  OK ');
 		
 		if(!$this->copyProducts())
-		{	// Mensaje de error
+		{	
 			$result .= $this->log($this->message);
 			die();
 		}
@@ -419,38 +439,78 @@ class PriceUpdate extends Module
 		}
 		$result .= $this->log($this->message);
 
-		if($this->finishTask())
+		if(!$this->compareUpdateAttribute())
 		{
-			//Mensaje final tarea terminada OK
-			$result .= $this->log('Tarea terminada correctamente: OK ');
-			//TODO Enviar correo electronico avisando.
+			$result .= $this->log($this->message);
+			die();
 		}
+		$result .= $this->log($this->message);
+
+		if(!$this->finishTask()) {
+			$result .= $this->log($this->message);
+			
+			//PriceUpdateMail::message($result);
+			//dd(PriceUpdateMail::send());
+		}
+
+		$this->setProcessDate();
+		
+		$result .= $this->log($this->message);
+		
+		//PriceUpdateMail::message($result);
+		//dd(PriceUpdateMail::send());
 
 		return $result;
 
     }
 
     private function setProcessDate()
-    {}
+    {
+    	$timestamp = date('Y-m-d G:i:s');
+    	Configuration::updateValue('JMR_PU_LASTUPDATE', $timestamp);
+    }
 
     private function getProcessDate()
-    {}
+    {
+    	$timestamp = Configuration::get('JMR_PU_LASTUPDATE');
+    	return $timestamp;
+    }
 
     private function checkTask()
-    {}
+    {    	
+    	$last = $this->getProcessDate();
+    	$today = date('Y-m-d G:i:s');
+
+    	$sql = 'SELECT COUNT(*) FROM '._DB_PREFIX_.'pedregosa_master';
+		$check = Db::getInstance()->getValue($sql);
+
+		if($check > 0) {
+    		return false;
+    	}
+
+    	if($last > $today) {
+    		return false;
+    	}
+    	return true;
+    }
 
     private function finishTask()
     {
-    	/*Mail::Send((int)(Configuration::get('PS_LANG_DEFAULT')), // defaut language id
-        'contact', // email template file to be use
-        $this->displayName.' Module Installation', // email subject
-        array(
-          '{email}' => 'soporte@1024mbits.com', // sender email address
-          '{message}' => $this->displayName.' has been installed on:'._PS_BASE_URL_.__PS_BASE_URI__ // email content
-        ), 
-        'your-email@mail.com', // receiver email address 
-        NULL, NULL, NULL);
-        */
+    	$message;   	
+    	// Vaciamos las tablas luego de la actualización o de un error.
+    	$sql = array();
+    	$sql[] = 'TRUNCATE TABLE '._DB_PREFIX_.'pedregosa_master';
+    	$sql[] = 'TRUNCATE TABLE '._DB_PREFIX_.'pedregosa_slave';
+
+    	foreach ($sql as $query) {
+		    if (!Db::getInstance()->execute($query)) {
+		    	$this->message = 'Ha ocurrido un error al vaciar las tablas';
+		    	return $this->message;
+		    	die();
+		    }
+		}
+		$this->message = 'Tablas vaciadas correctamente: OK';
+		return $this->message;
     }
 
     private function procesarCsv()
@@ -550,16 +610,16 @@ class PriceUpdate extends Module
 		return $this->message;
     }
 
-    /*public function compareUpdateAttribute()
+    private function compareUpdateAttribute()
     {
     	$message;
-		// Actualizamos los productos simples
+
 		$sql = 'SELECT A.id_product_attribute, A.id_product, A.reference, B.price FROM '._DB_PREFIX_.'product_attribute A
 				INNER JOIN '._DB_PREFIX_.'pedregosa_master B ON A.reference=B.reference WHERE A.price <> B.price';
 
 		if(!$results = Db::getInstance()->executeS($sql))
 		{
-			$this->message = 'Ha ocurrido un error al intentar realizar la comparación de produtos';
+			$this->message = 'Ha ocurrido un error al intentar realizar la comparación de produtos combinados';
 			return $this->message;
 			die();
 		}
@@ -571,7 +631,7 @@ class PriceUpdate extends Module
 
 			if(!Db::getInstance()->execute($updatePa))
 			{
-				$this->message = 'Ha ocurrido un error al actualizar los productos';
+				$this->message = 'Ha ocurrido un error al actualizar los productos combinados';
 				return $this->message;
 				die();
 			}
@@ -581,7 +641,7 @@ class PriceUpdate extends Module
 
 			if(!Db::getInstance()->execute($updatePas))
 			{
-				$this->message = 'Ha ocurrido un error al actualizar los productos';
+				$this->message = 'Ha ocurrido un error al actualizar los productos combinados';
 				return $this->message;
 				die();
 			}
@@ -589,7 +649,7 @@ class PriceUpdate extends Module
 
 		$this->message = 'Actualización de productos realizada con exito: OK';
 		return $this->message;
-    }*/
+    }
 }
 
 

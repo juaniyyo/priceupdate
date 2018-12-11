@@ -30,6 +30,7 @@ $sql[] = 'CREATE TABLE IF NOT EXISTS ' . _DB_PREFIX_ . 'pedregosa_config (
         `ftp_name` varchar(254) NOT NULL,
         `ftp_srv` varchar(55) NOT NULL,
         `ftp_user` varchar(55) NOT NULL,
+        `ftp_mail` varchar(55) NOT NULL,
         `ftp_pass` varchar(55) NOT NULL,
         `ftp_ssl` int(1) NOT NULL,
         PRIMARY KEY(`id_conn`))
