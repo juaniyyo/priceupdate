@@ -44,8 +44,6 @@ class PriceUpdate extends Module
 		 * Libreria que carga configuraciones en archivos .env y están disponibles en forma global
 		 * @return instacia de Dotenv
 		 */
-		$this->env = new Dotenv\Dotenv(__DIR__);
-		$this->env->load();
 		$this->csv = new PriceUpdateCommon();
 		
 		parent::__construct();
@@ -63,6 +61,12 @@ class PriceUpdate extends Module
 			return false;
 		
 		Configuration::updateValue('JMR_PU_LASTUPDATE', 'null');
+		Configuration::updateValue('JMR_PU_REMOTE_FILE', 'null');
+		Configuration::updateValue('JMR_PU_OFFSET', 'null');
+		Configuration::updateValue('JMR_PU_REFERENCE', 'null');
+		Configuration::updateValue('JMR_PU_LPI', 'null');
+		Configuration::updateValue('JMR_PU_PRICE', 'null');
+		//Configuration::updateValue('JMR_PU_STOCK', 'null');
 		$success = include(dirname(__FILE__) . '/sql/install.php');
 		
 		if (!$success)
@@ -77,11 +81,19 @@ class PriceUpdate extends Module
 
 	public function uninstall()
 	{
+		$success = include(dirname(__FILE__) . '/sql/uninstall.php');
+
 		if (!parent::uninstall() 
-		|| include(dirname(__FILE__) . '/sql/uninstall.php')
-		|| Configuration::deleteByName('JMR_PU_LASTUPDATE')
+		|| !$success
+		|| !Configuration::deleteByName('JMR_PU_LASTUPDATE')
+		|| !Configuration::deleteByName('JMR_PU_REMOTE_FILE')
+		|| !Configuration::deleteByName('JMR_PU_OFFSET')
+		|| !Configuration::deleteByName('JMR_PU_REFERENCE')
+		|| !Configuration::deleteByName('JMR_PU_LPI')
+		|| !Configuration::deleteByName('JMR_PU_PRICE')
+		//|| !Configuration::deleteByName('JMR_PU_STOCK')
 		)
-			return false;
+			//return false;
 
 		return true;
 	}
@@ -95,7 +107,8 @@ class PriceUpdate extends Module
 	{
 		if ((int)$id > 0)
 		{
-			$sql = 'SELECT b.`id_conn`, b.`ftp_name`, b.`ftp_srv`, b.`ftp_user`, b.`ftp_mail`, b.`ftp_pass`, b.`ftp_ssl` FROM `'._DB_PREFIX_.'pedregosa_config` b WHERE b.id_conn='.(int)$id;
+			$sql = 'SELECT b.`id_conn`, b.`ftp_name`, b.`ftp_srv`, b.`ftp_user`, b.`ftp_mail`, b.`ftp_pass`, b.`ftp_ssl` 
+					FROM `'._DB_PREFIX_.'pedregosa_config` b WHERE b.id_conn='.(int)$id;
 
 			if (!$results = Db::getInstance()->getRow($sql))
 			{
@@ -105,10 +118,15 @@ class PriceUpdate extends Module
 			$link['id_conn'] = (int)$results['id_conn'];
 			$link['ftp_name'] = $results['ftp_name'];
 			$link['ftp_srv'] = $results['ftp_srv'];
-			$link['ftp_user'] = $result['ftp_user'];
-			$link['ftp_mail'] = $result['ftp_mail'];
-			$link['ftp_pass'] = $result['ftp_pass'];
-			$link['ftp_ssl'] = $result['ftp_ssl'];
+			$link['ftp_user'] = $results['ftp_user'];
+			$link['ftp_mail'] = $results['ftp_mail'];
+			$link['ftp_pass'] = $results['ftp_pass'];
+			$link['ftp_ssl'] = $results['ftp_ssl'];
+
+			$link['csv_remote'] = (Configuration::get('JMR_PU_REMOTE_FILE') ? Configuration::get('JMR_PU_REMOTE_FILE') : 'N/D');
+			$link['csv_offset'] = (Configuration::get('JMR_PU_OFFSET') ? Configuration::get('JMR_PU_OFFSET') : 'N/D');
+			$link['csv_reference'] = (Configuration::get('JMR_PU_REFERENCE') ? Configuration::get('JMR_PU_REFERENCE') : 'N/D');
+			$link['csv_price'] = (Configuration::get('JMR_PU_PRICE') ? Configuration::get('JMR_PU_PRICE') : 'N/D');
 
 			return $link;
 		}
@@ -120,7 +138,8 @@ class PriceUpdate extends Module
 	{
 		$result = array();
 
-		$sql = 'SELECT b.`id_conn`, b.`ftp_name`, b.`ftp_srv`, b.`ftp_user`, b.`ftp_mail`, b.`ftp_pass`, b.`ftp_ssl` FROM `'._DB_PREFIX_.'pedregosa_config` b ORDER BY `id_conn` DESC';
+		$sql = 'SELECT b.`id_conn`, b.`ftp_name`, b.`ftp_srv`, b.`ftp_user`, b.`ftp_mail`, b.`ftp_pass`, b.`ftp_ssl` 
+				FROM `'._DB_PREFIX_.'pedregosa_config` b ORDER BY `id_conn` DESC';
 
 		if (!$links = Db::getInstance()->executeS($sql))
 		{
@@ -128,7 +147,7 @@ class PriceUpdate extends Module
 		}
 
 		$i = 0;
-		foreach ($links as $link)
+		foreach ($links as $link) 
 		{
 			$result[$i]['id_conn'] = $link['id_conn'];
 			$result[$i]['ftp_name'] = $link['ftp_name'];
@@ -136,7 +155,14 @@ class PriceUpdate extends Module
 			$result[$i]['ftp_user'] = $link['ftp_user'];
 			$result[$i]['ftp_mail'] = $link['ftp_mail'];
 			$result[$i]['ftp_pass'] = $link['ftp_pass'];
-			$result[$i]['ftp_ssl'] = $link['ftp_ssl'];
+			$result[$i]['ftp_ssl'] = ($link['ftp_ssl'] == 1 ? "Activado" : "Desactivado");
+
+			$result[$i]['csv_remote'] = (Configuration::get('JMR_PU_REMOTE_FILE') ? Configuration::get('JMR_PU_REMOTE_FILE') : 'N/D');
+			$result[$i]['csv_offset'] = (Configuration::get('JMR_PU_OFFSET') ? Configuration::get('JMR_PU_OFFSET') : 'N/D');
+			$result[$i]['csv_reference'] = (Configuration::get('JMR_PU_REFERENCE') ? Configuration::get('JMR_PU_REFERENCE') : 'N/D');
+			$result[$i]['csv_lpi'] = (Configuration::get('JMR_PU_LPI') ? Configuration::get('JMR_PU_LPI') : 'N/D');
+			$result[$i]['csv_price'] = (Configuration::get('JMR_PU_PRICE') ? Configuration::get('JMR_PU_PRICE') : 'N/D');
+			//$result[$i]['csv_stock'] = (Configuration::get('JMR_PU_STOCK') ? Configuration::get('JMR_PU_STOCK') : 'N/D');
 
 			$i++;
 		}
@@ -156,9 +182,33 @@ class PriceUpdate extends Module
 		return true;
 	}
 
-	public function deleteConn()
+	public function addCsvParam()
 	{
-		return Db::getInstance()->execute('DELETE FROM '._DB_PREFIX_.'pedregosa_config WHERE `id_conn` = '.(int)Tools::getValue('id_conn'));
+		if (!Configuration::updateValue('JMR_PU_REMOTE_FILE', pSQL(Tools::getValue('csv_remote'))) || !Configuration::updateValue('JMR_PU_OFFSET', pSQL(Tools::getValue('csv_offset')))
+			|| !Configuration::updateValue('JMR_PU_REFERENCE', pSQL(Tools::getValue('csv_reference'))) || !Configuration::updateValue('JMR_PU_LPI', pSQL(Tools::getValue('csv_lpi')))
+			|| !Configuration::updateValue('JMR_PU_PRICE', pSQL(Tools::getValue('csv_price'))) || !Configuration::updateValue('JMR_PU_STOCK', pSQL(Tools::getValue('csv_stock'))))
+			{
+				return false;
+			}
+			
+			return true;
+	}
+
+	public function deleteConn()
+	{		
+		//return Db::getInstance()->execute('DELETE FROM '._DB_PREFIX_.'pedregosa_config WHERE `id_conn` = '.(int)Tools::getValue('id_conn'));
+		$this->deleteCsvParam();
+		return Db::getInstance()->execute('TRUNCATE TABLE '._DB_PREFIX_.'pedregosa_config');
+	}
+
+	public function deleteCsvParam()
+	{
+		Configuration::deleteByName('JMR_PU_REMOTE_FILE');
+		Configuration::deleteByName('JMR_PU_OFFSET');
+		Configuration::deleteByName('JMR_PU_REFERENCE');
+		Configuration::deleteByName('JMR_PU_LPI');
+		Configuration::deleteByName('JMR_PU_PRICE');
+		Configuration::deleteByName('JMR_PU_STOCK');
 	}
 
 	public function getContent()
@@ -196,6 +246,25 @@ class PriceUpdate extends Module
 				}
 			}
 		}
+		elseif (Tools::isSubmit('submitCsv'))
+		{
+			if (empty($_POST['csv_remote']) || empty($_POST['csv_offset']) || empty($_POST['csv_reference']) || empty($_POST['csv_lpi']) 
+				|| empty($_POST['csv_price']) || empty($_POST['csv_stock']))
+			{
+				$this->_html .= $this->displayError($this->l('Tienes que completar todos los datos'));
+			}else
+			{
+				if ($this->addCsvParam())
+				{
+					Tools::redirectAdmin($this->context->link->getAdminLink('AdminModules').'&configure='.$this->name.'&tab_module='.$this->tab.'&module_name='.$this->name);
+					$this->_html .= $this->displayConfirmation($this->l('La configuración del CSV ha sido agregada correctamente.'));
+				}
+				else
+				{
+					$this->_html .= $this->displayError($this->l('Ha ocurrido un error durante la configuración del CSV'));
+				}
+			}
+		}
 		// borrar conexión ftp
 		elseif (Tools::isSubmit('deletepriceupdate') && Tools::getValue('id_conn'))
 		{
@@ -220,10 +289,6 @@ class PriceUpdate extends Module
 	public function renderList()
 	{
 		$fields_list = array(
-			'id_conn' => array(
-				'title' => $this->l('FTP conn ID'),
-				'type' => 'text',
-			),
 			'ftp_name' => array(
 				'title' => $this->l('Nombre de la conexión'),
 				'type' => 'text',
@@ -240,6 +305,30 @@ class PriceUpdate extends Module
 				'title' => $this->l('Notificaciones'),
 				'type' => 'text',
 			),
+			'csv_remote' => array(
+				'title' => $this->l('Archivo CSV Remoto'),
+				'type' => 'text',
+			),
+			'csv_offset' => array(
+				'title' => $this->l('CSV Offset'),
+				'type' => 'text',
+			),
+			'csv_reference' => array(
+				'title' => $this->l('CSV columna Referencia'),
+				'type' => 'text',
+			),
+			'csv_lpi' => array(
+				'title' => $this->l('CSV LPI'),
+				'type' => 'text',
+			),
+			'csv_price' => array(
+				'title' => $this->l('CSV columna Precio'),
+				'type' => 'text',
+			),
+			/*'csv_stock' => array(
+				'title' => $this->l('CSV Stock'),
+				'type' => 'text',
+			),*/
 			'ftp_ssl' => array(
 				'title' => $this->l('SSL Activado'),
 				'type' => 'text',
@@ -341,7 +430,76 @@ class PriceUpdate extends Module
 					'title' => $this->l('Guardar'),
 					'class' => 'btn btn-primary pull-right',
 					'name' => 'submitFtp',
-				)
+				),
+			),
+		);
+		$fields_form_2 = array(
+			'form' => array(
+				'legend' => array(
+					'title' => $this->l('Parametros de configuración del CSV'),
+					'icon' => 'icon-cog'
+				),
+				'input' => array(
+					array(
+						'col' => 1,
+						'type' => 'text',
+						'label' => $this->l('Archivo CSV Remoto'),
+						'name' => 'csv_remote',
+						'lang' => false,
+						'required' => true,
+					),
+					array(
+						'col' => 1,
+						'type' => 'text',
+						'label' => $this->l('CSV "Offset"'),
+						'name' => 'csv_offset',
+						'lang' => false,
+						'required' => true,
+					),
+					array(
+						'col' => 1,
+						'type' => 'text',
+						'label' => $this->l('CSV "Referencia"'),
+						'name' => 'csv_reference',
+						'lang' => false,
+						'required' => true,
+					),
+					array(
+						'col' => 1,
+						'type' => 'text',
+						'label' => $this->l('CSV "LPI"'),
+						'name' => 'csv_lpi',
+						'lang' => false,
+						'required' => true,
+					),
+					array(
+						'col' => 1,
+						'type' => 'text',
+						'label' => $this->l('CSV "Precio"'),
+						'name' => 'csv_price',
+						'lang' => false,
+						'required' => true,
+					),
+					/*array(
+						'col' => 1,
+						'type' => 'text',
+						'label' => $this->l('CSV "Stock"'),
+						'name' => 'csv_stock',
+						'lang' => false,
+						'required' => true,
+					),*/
+				),
+				'reset' => array(
+					'title' => $this->l('LIMPIAR'),
+					'class' => 'btn btn-danger pull-right',
+					'icon' 	=> 'process-icon-cancel', 
+					'name' 	=> 'resetCsv',
+				),
+				'submit' => array(
+					'title' => $this->l('Guardar'),
+					'class' => 'btn btn-primary pull-right',
+					'name' => 'submitCsv',
+				),
 			),
 		);
 
@@ -358,8 +516,13 @@ class PriceUpdate extends Module
 		$helper->tpl_vars = array(
 			'fields_value' => $this->getConfigFieldsValues(),
 		);
-		
-		return $helper->generateForm(array($fields_form_1));
+
+		$conn = $this->getConn();
+		if (is_array($conn) && count($conn))
+			return $helper->generateForm(array($fields_form_1, $fields_form_2));
+		else
+			return $helper->generateForm(array($fields_form_1));
+
 	}
 
 	public function getConfigFieldsValues()
@@ -369,6 +532,12 @@ class PriceUpdate extends Module
 			'ftp_name' => '',
 			'ftp_srv' => '',
 			'ftp_user' => '',
+			'csv_remote' => '',
+			'csv_offset' => '',
+			'csv_reference' => '',
+			'csv_lpi' => '',
+			'csv_price' => '',
+			//'csv_stock' => '',
 			'ftp_mail' => '',
 			'ftp_pass' => '',
 			'ftp_ssl' => '',
@@ -411,19 +580,19 @@ class PriceUpdate extends Module
 		
 		if(!$this->csv->downloadCsv())
 		{	
-			$result .= $this->log('error al descargar el archivo del ftp: "' . getenv('FTP_HOST') . '"');
-			die();
+			$result .= $this->log('error al descargar el archivo del ftp');
+			die('downloadCSV');
 		}
 		
-		$result .= $this->log('Archivo"' . getenv('REMOTE_FILE') . '" descargado:  OK ');
+		$result .= $this->log('Archivo "' . Configuration::get('JMR_PU_REMOTE_FILE') . '" descargado:  OK ');
 
 		if(!$this->procesarCsv())
 		{	
 			$result .= $this->log($this->message);
-			die();
+			die('ProcesarCSV');
 		}
 		
-		$result .= $this->log('Procesando CSV descargado:  OK ');
+		$result .= $this->log($this->message);
 		
 		if(!$this->copyProducts())
 		{	
@@ -448,17 +617,14 @@ class PriceUpdate extends Module
 
 		if(!$this->finishTask()) {
 			$result .= $this->log($this->message);
-			
-			//PriceUpdateMail::message($result);
-			//dd(PriceUpdateMail::send());
 		}
 
 		$this->setProcessDate();
 		
 		$result .= $this->log($this->message);
 		
-		//PriceUpdateMail::message($result);
-		//dd(PriceUpdateMail::send());
+		PriceUpdateMail::message($result);
+		PriceUpdateMail::send();
 
 		return $result;
 
@@ -515,23 +681,31 @@ class PriceUpdate extends Module
 
     private function procesarCsv()
     {
-    	$message;
+		$message;
+		
+		$reference = (int) Configuration::get('JMR_PU_REFERENCE');
+		$lpi = (int) Configuration::get('JMR_PU_LPI');
+		$price = (int) Configuration::get('JMR_PU_PRICE');
+		//$stock = (int) Configuration::get('JMR_PU_STOCK');
+		
+		$sql = $this->csv->prepareMasterCsv();
 
-    	$sql = $this->csv->prepareMasterCsv();
-    	
     	if(!$sql)
     	{
     		$this->message = 'Ha ocurrido un error inesperado';
     		return $this->message;
-    		die();
+    		die('prepareMasterCsv');
     	}
-    	foreach($sql->fetchPairs(3, 5) as $reference => $price) 
+		foreach($sql->getRecords() as $data)
 	    {
-	        $master[] = array(
-	            'reference' => $reference,
-	            'price' => str_replace(',', '.', $price),
-	        );
-	    }
+	       $master[] = array(
+				'reference' => $data[$reference],
+				'lpi' => $a = str_replace(',', '.', $data[$lpi]),
+				'price' => $b = str_replace(',', '.', $data[$price]),
+				'total_price' => $a + $b + (($a + $b) / 10),
+				//'stock' => $data[$stock],
+			);
+		}
 
 	    if(!Db::getInstance()->insert('pedregosa_master', $master))
         {
@@ -575,8 +749,8 @@ class PriceUpdate extends Module
     {
     	$message;
 		// Actualizamos los productos simples
-		$sql = 'SELECT A.id_product, A.reference, B.price FROM '._DB_PREFIX_.'product A
-				INNER JOIN '._DB_PREFIX_.'pedregosa_master B ON A.reference=B.reference WHERE A.price <> B.price and A.reference <> \'\'';
+		$sql = 'SELECT A.id_product, A.reference, B.total_price FROM '._DB_PREFIX_.'product A
+				JOIN '._DB_PREFIX_.'pedregosa_master B ON A.reference=B.reference WHERE A.price <> B.total_price and A.reference <> \'\'';
 
 		if(!$results = Db::getInstance()->executeS($sql))
 		{
@@ -584,10 +758,9 @@ class PriceUpdate extends Module
 			return $this->message;
 			die();
 		}
-
 		foreach ($results as $row) 
 		{			
-			$updateP = 'UPDATE '._DB_PREFIX_.'product SET price = \''.$row['price'].'\' WHERE id_product = \''.$row['id_product'].'\'';
+			$updateP = 'UPDATE '._DB_PREFIX_.'product SET price = \''.$row['total_price'].'\' WHERE id_product = \''.$row['id_product'].'\'';
 			
 			if(!Db::getInstance()->execute($updateP))
 			{
@@ -596,7 +769,7 @@ class PriceUpdate extends Module
 				die();
 			}
 
-			$updatePs = 'UPDATE '._DB_PREFIX_.'product_shop SET price = \''.$row['price'].'\' WHERE id_product = \''.$row['id_product'].'\'';
+			$updatePs = 'UPDATE '._DB_PREFIX_.'product_shop SET price = \''.$row['total_price'].'\' WHERE id_product = \''.$row['id_product'].'\'';
 
 			if(!Db::getInstance()->execute($updatePs))
 			{
@@ -614,8 +787,8 @@ class PriceUpdate extends Module
     {
     	$message;
 
-		$sql = 'SELECT A.id_product_attribute, A.id_product, A.reference, B.price FROM '._DB_PREFIX_.'product_attribute A
-				INNER JOIN '._DB_PREFIX_.'pedregosa_master B ON A.reference=B.reference WHERE A.price <> B.price';
+		$sql = 'SELECT A.id_product_attribute, A.id_product, A.reference, B.total_price FROM '._DB_PREFIX_.'product_attribute A
+				JOIN '._DB_PREFIX_.'pedregosa_master B ON A.reference=B.reference WHERE A.price <> B.total_price';
 
 		if(!$results = Db::getInstance()->executeS($sql))
 		{
@@ -626,7 +799,7 @@ class PriceUpdate extends Module
 
 		foreach ($results as $row) 
 		{			
-			$updatePa = 'UPDATE '._DB_PREFIX_.'product_attribute SET price = \''.$row['price'].'\' 
+			$updatePa = 'UPDATE '._DB_PREFIX_.'product_attribute SET price = \''.$row['total_price'].'\' 
 							WHERE id_product = \''.$row['id_product'].'\' AND id_product_attribute = \''.$row['id_product_attribute'].'\'';
 
 			if(!Db::getInstance()->execute($updatePa))
@@ -636,7 +809,7 @@ class PriceUpdate extends Module
 				die();
 			}
 
-			$updatePas = 'UPDATE '._DB_PREFIX_.'product_attribute_shop SET price = \''.$row['price'].'\' 
+			$updatePas = 'UPDATE '._DB_PREFIX_.'product_attribute_shop SET price = \''.$row['total_price'].'\' 
 							WHERE id_product = \''.$row['id_product'].'\' AND id_product_attribute = \''.$row['id_product_attribute'].'\'';
 
 			if(!Db::getInstance()->execute($updatePas))

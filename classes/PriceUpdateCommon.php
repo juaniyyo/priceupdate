@@ -5,8 +5,8 @@
 * NOTICE OF LICENSE
 *
 *  @author    1024Mbits.com <soporte@1024mbits.com>
-*  @copyright 2018 1024Mbits.com
-*  @license   GNU General Public License version 2
+*  @copyright 2013-2018 1024Mbits.com
+*  @license   Commercial license
 *  @category  Prestashop
 *  @category  Module
 *
@@ -28,19 +28,17 @@ class PriceUpdateCommon
 	public $module;
 	public $token;
 
-	private $download_folder;
     private $remote_file;
     private $local_file;
-    private $ps_product;
+    private $offset;
 
 	public function __construct()
 	{
 		$this->ftp = new \FtpClient\FtpClient();
 
-		$this->download_folder = getenv('DOWNLOAD_FOLDER');
-	    $this->remote_file = getenv('REMOTE_FILE');
-	    $this->local_file = _PS_MODULE_DIR_ . 'priceupdate' . DIRECTORY_SEPARATOR . $this->download_folder . DIRECTORY_SEPARATOR . getenv('LOCAL_FILE');
-	    $this->ps_product = _PS_MODULE_DIR_ . 'priceupdate' . DIRECTORY_SEPARATOR . $this->download_folder . DIRECTORY_SEPARATOR . getenv('PS_PRODUCT');
+        $this->offset = (int) Configuration::get('JMR_PU_OFFSET');
+	    $this->remote_file = Configuration::get('JMR_PU_REMOTE_FILE');
+	    $this->local_file = _PS_MODULE_DIR_ . 'priceupdate' . DIRECTORY_SEPARATOR . 'download' . DIRECTORY_SEPARATOR . 'inforpor-descargado.csv';
 	}
 
 	public function getTokenizer()
@@ -91,6 +89,8 @@ class PriceUpdateCommon
         return true;
 	}
 
+    
+
 
 	/**
 	 * [masterSortById description]
@@ -114,7 +114,7 @@ class PriceUpdateCommon
 		    $master = Reader::createFromPath($this->local_file, 'r');
 		    $master->setDelimiter(';');
 
-		    $stmt = ( new Statement() )->offset(2);
+		    $stmt = (new Statement())->offset($this->offset);
 		    $sql = $stmt->process($master);
 
 		    return $sql;
@@ -129,8 +129,17 @@ class PriceUpdateCommon
     {
     	$token = $this->getTokenizer();
 
-        $result = '"'._PS_ROOT_DIR_.DIRECTORY_SEPARATOR.'index.php';
-        $result .= '?fc=module&module=priceupdate&controller=cron&token='.$token.'"';
+        $result = '"'._PS_ROOT_DIR_.DIRECTORY_SEPARATOR.'index.php' . '" ';
+        $result .='"'. '?fc=module&module=priceupdate&controller=cron&token='.$token.'"';
+         
+        return $result;
+    }
+
+    public function getUrlCommand()
+    {
+        $token = $this->getTokenizer();
+
+        $result = '?fc=module&module=priceupdate&controller=cron&token='.$token.'';
          
         return $result;
     }

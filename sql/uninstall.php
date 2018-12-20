@@ -31,7 +31,7 @@ $sql[] = 'DROP TABLE IF EXISTS ' . _DB_PREFIX_ . 'pedregosa_final';
 $sql[] = 'DROP TABLE IF EXISTS ' . _DB_PREFIX_ . 'pedregosa_config';
 
 foreach ($sql as $query) {
-    if (Db::getInstance()->execute($query) == false) {
+    if (!Db::getInstance()->execute($query)) {
         return false;
     }
 }

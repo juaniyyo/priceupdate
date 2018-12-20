@@ -4,8 +4,7 @@
     "type": "project",
     "require": {
         "nicolab/php-ftp-client": "^1.4",
-        "league/csv": "^9.1",
-        "vlucas/phpdotenv": "^2.5"
+        "league/csv": "^9.1"
     },
     "license": "PRIVATE",
     "authors": [

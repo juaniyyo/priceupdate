@@ -38,8 +38,11 @@ $sql[] = 'CREATE TABLE IF NOT EXISTS ' . _DB_PREFIX_ . 'pedregosa_config (
 
 $sql[] = 'CREATE TABLE IF NOT EXISTS ' . _DB_PREFIX_ . 'pedregosa_master (
         `id_master` int NOT NULL AUTO_INCREMENT,
-        `reference`varchar(255) NOT NULL,
+        `reference` varchar(255) NOT NULL,
+        `lpi` DECIMAL(20,6) NULL DEFAULT 0,
         `price` DECIMAL(20,6) NOT NULL,
+        `total_price` DECIMAL(20,6) NULL DEFAULT 0,
+        `stock` int(10) NOT NULL,
         PRIMARY KEY(`id_master`))
         ENGINE='._MYSQL_ENGINE_.' default CHARSET=utf8';
 
@@ -58,7 +61,7 @@ $sql[] = 'CREATE TABLE IF NOT EXISTS ' . _DB_PREFIX_ . 'pedregosa_final (
         ENGINE='._MYSQL_ENGINE_.' default CHARSET=utf8';
 
 foreach ($sql as $query) {
-    if (Db::getInstance()->execute($query) == false) {
+    if (!Db::getInstance()->execute($query)) {
         return false;
     }
 }

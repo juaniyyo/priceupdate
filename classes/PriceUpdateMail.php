@@ -42,7 +42,7 @@ class PriceUpdateMail
 
     public static function init($debug = false)
     {
-        $id_employee = $this->context->employee->id;
+        $id_employee = 1;//$this->context->employee->id;
         $employee = new Employee($id_employee ? $id_employee : 1);
         
         $mailto_default = Configuration::get('PS_SHOP_EMAIL');
@@ -57,11 +57,12 @@ class PriceUpdateMail
         }
 
         if (!self::$mailto) {
-            if(!$mailto_form) {
+            if(!$mailto_form['ftp_mail']) {
                 self::$mailto = $mailto_default;
+            }else {
+                self::$mailto = $mailto_form['ftp_mail'];
             }
-            self::$mailto = $mailto_form;
-        }
+        }   
 
         if (!self::$shop) {
             self::$shop = Configuration::get('PS_SHOP_NAME');
@@ -105,7 +106,7 @@ class PriceUpdateMail
                 $template_vars, // templateVars
                 self::$mailto, // to
                 null, // To Name
-                $shop, // From
+                self::$shop, // From
                 null, // From Name
                 null, // Attachment
                 null, // SMTP
