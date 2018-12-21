@@ -66,7 +66,6 @@ class PriceUpdate extends Module
 		Configuration::updateValue('JMR_PU_REFERENCE', 'null');
 		Configuration::updateValue('JMR_PU_LPI', 'null');
 		Configuration::updateValue('JMR_PU_PRICE', 'null');
-		//Configuration::updateValue('JMR_PU_STOCK', 'null');
 		$success = include(dirname(__FILE__) . '/sql/install.php');
 		
 		if (!$success)
@@ -91,7 +90,6 @@ class PriceUpdate extends Module
 		|| !Configuration::deleteByName('JMR_PU_REFERENCE')
 		|| !Configuration::deleteByName('JMR_PU_LPI')
 		|| !Configuration::deleteByName('JMR_PU_PRICE')
-		//|| !Configuration::deleteByName('JMR_PU_STOCK')
 		)
 			//return false;
 
@@ -162,7 +160,6 @@ class PriceUpdate extends Module
 			$result[$i]['csv_reference'] = (Configuration::get('JMR_PU_REFERENCE') ? Configuration::get('JMR_PU_REFERENCE') : 'N/D');
 			$result[$i]['csv_lpi'] = (Configuration::get('JMR_PU_LPI') ? Configuration::get('JMR_PU_LPI') : 'N/D');
 			$result[$i]['csv_price'] = (Configuration::get('JMR_PU_PRICE') ? Configuration::get('JMR_PU_PRICE') : 'N/D');
-			//$result[$i]['csv_stock'] = (Configuration::get('JMR_PU_STOCK') ? Configuration::get('JMR_PU_STOCK') : 'N/D');
 
 			$i++;
 		}
@@ -196,7 +193,6 @@ class PriceUpdate extends Module
 
 	public function deleteConn()
 	{		
-		//return Db::getInstance()->execute('DELETE FROM '._DB_PREFIX_.'pedregosa_config WHERE `id_conn` = '.(int)Tools::getValue('id_conn'));
 		$this->deleteCsvParam();
 		return Db::getInstance()->execute('TRUNCATE TABLE '._DB_PREFIX_.'pedregosa_config');
 	}
@@ -208,7 +204,6 @@ class PriceUpdate extends Module
 		Configuration::deleteByName('JMR_PU_REFERENCE');
 		Configuration::deleteByName('JMR_PU_LPI');
 		Configuration::deleteByName('JMR_PU_PRICE');
-		Configuration::deleteByName('JMR_PU_STOCK');
 	}
 
 	public function getContent()
@@ -249,7 +244,7 @@ class PriceUpdate extends Module
 		elseif (Tools::isSubmit('submitCsv'))
 		{
 			if (empty($_POST['csv_remote']) || empty($_POST['csv_offset']) || empty($_POST['csv_reference']) || empty($_POST['csv_lpi']) 
-				|| empty($_POST['csv_price']) || empty($_POST['csv_stock']))
+				|| empty($_POST['csv_price']))
 			{
 				$this->_html .= $this->displayError($this->l('Tienes que completar todos los datos'));
 			}else
@@ -325,10 +320,6 @@ class PriceUpdate extends Module
 				'title' => $this->l('CSV columna Precio'),
 				'type' => 'text',
 			),
-			/*'csv_stock' => array(
-				'title' => $this->l('CSV Stock'),
-				'type' => 'text',
-			),*/
 			'ftp_ssl' => array(
 				'title' => $this->l('SSL Activado'),
 				'type' => 'text',
@@ -480,14 +471,6 @@ class PriceUpdate extends Module
 						'lang' => false,
 						'required' => true,
 					),
-					/*array(
-						'col' => 1,
-						'type' => 'text',
-						'label' => $this->l('CSV "Stock"'),
-						'name' => 'csv_stock',
-						'lang' => false,
-						'required' => true,
-					),*/
 				),
 				'reset' => array(
 					'title' => $this->l('LIMPIAR'),
@@ -537,7 +520,6 @@ class PriceUpdate extends Module
 			'csv_reference' => '',
 			'csv_lpi' => '',
 			'csv_price' => '',
-			//'csv_stock' => '',
 			'ftp_mail' => '',
 			'ftp_pass' => '',
 			'ftp_ssl' => '',
