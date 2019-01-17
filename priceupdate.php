@@ -668,7 +668,6 @@ class PriceUpdate extends Module
 		$reference = (int) Configuration::get('JMR_PU_REFERENCE');
 		$lpi = (int) Configuration::get('JMR_PU_LPI');
 		$price = (int) Configuration::get('JMR_PU_PRICE');
-		//$stock = (int) Configuration::get('JMR_PU_STOCK');
 		
 		$sql = $this->csv->prepareMasterCsv();
 
@@ -684,8 +683,7 @@ class PriceUpdate extends Module
 				'reference' => $data[$reference],
 				'lpi' => $a = str_replace(',', '.', $data[$lpi]),
 				'price' => $b = str_replace(',', '.', $data[$price]),
-				'total_price' => $a + $b + (($a + $b) / 10),
-				//'stock' => $data[$stock],
+				'total_price' => $a + $b,
 			);
 		}
 
