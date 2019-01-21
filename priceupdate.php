@@ -372,7 +372,7 @@ class PriceUpdate extends Module
 					),
 					array(
 						'type' => 'text',
-						'label' => $this->l('Usurio'),
+						'label' => $this->l('Usuario'),
 						'name' => 'ftp_user',
 						'lang' => false,
 						'required' => true,
